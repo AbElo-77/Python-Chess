@@ -16,6 +16,8 @@ class ConvolutionNN(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Conv2d(64, 128, kernel_size=1, padding=3),
             torch.nn.ReLU(),
+            torch.nn.Conv2d(128, 256, kernel_size=1, padding=3), 
+            torch.nn.ReLU(),
             torch.nn.Flatten()
         )
 
@@ -71,7 +73,8 @@ for epoch in range(number_of_epochs):
 
         total_loss += loss.item(); 
 
-    accuracy = model_accuracy(batch_training)
+    accuracy = model_accuracy(batch_training); 
     print(f"Epoch {epoch+1}/{number_of_epochs} - Accuracy: {accuracy:.4f}"); 
 
-
+trained_convolution_model = torch.save(convolution_model.state_dict(), 
+                                       './backend/algorithmic_processing/models/trained_models'); 
