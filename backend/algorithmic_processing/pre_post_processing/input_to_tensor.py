@@ -48,19 +48,42 @@ def fen_to_tensor_cnn(fen: str) -> torch.Tensor:
     
     return tensor
 
-# def fen_to_tensor_rnn(fen: str) -> torch.Tensor: 
-#   board = chess.Board(fen); 
-#   tensor = torch.zeroes(------, dtype=torch.float32);
-#   
-#   for square, piece in board.piece_map().items(): 
-#       --------
+# ----------------------------------------------------------------------------------
 
-# def fen_to_tensor_gnn(fen:str) -> torch.Tensor: 
-#   board = chess.Board(fen);
-#   tensor - torch.zeroes(------, dtype=torch.float32);
-#   
-#   for square, peice in board.piece_map().items(): 
-#       --------
+def fen_to_tensor_rnn(fen: str) -> torch.Tensor: 
+    board = chess.Board(fen); 
+    tensor = torch.zeros((64, 12), dtype=torch.float32); 
+    
+    for square, piece in board.piece_map().items():
+        idx = chess.square_rank(square) * 8 + chess.square_file(square); 
+        tensor[idx, pieces_as_indexes[piece.symbol()]] = 1.0; 
+    
+    return tensor
+
+# --- (Work In Progress) -------------------------------------------------------- 
+
+def fen_to_tensor_gnn(fen:str) -> torch.Tensor: 
+    board = chess.Board(fen); 
+    tensor = torch.zeroes((64, 12), dtype=torch.float32); 
+   
+    for square, piece in board.piece_map().items(): 
+        idx = square; 
+        tensor[idx, pieces_as_indexes[piece.symbol()]] = 1.0; 
+
+    adjacents = torch.zeros((64, 64), dtype=torch.float32); 
+
+    for square in range(64):
+        rank, file = divmod(square, 8); 
+        neighbors = [
+            (rank + dr, file + dc)
+            for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]
+            if 0 <= rank + dr < 8 and 0 <= file + dc < 8
+        ]
+        for r, f in neighbors:
+            adjacents[square, r*8+f] = 1.0; 
+    
+    return tensor, adjacents
+       
 
 move_to_id, id_to_move = generate_moves_made(input_files); 
 
@@ -78,8 +101,11 @@ class ChessData(Dataset):
         row = self.dataframe.iloc[id];          
 
         X = fen_to_tensor_cnn(row["chess_fen"]); 
+        Y = fen_to_tensor_rnn(row["chess_fen"]); 
+        Z = fen_to_tensor_gnn(row["chess_fen"]); 
+
         y = self.move_to_id[row["move_made"]]; 
-        return X, y; 
+        return X, Y, Z, y; 
 
 all_dataset = ChessData(input_files, move_to_id); 
 

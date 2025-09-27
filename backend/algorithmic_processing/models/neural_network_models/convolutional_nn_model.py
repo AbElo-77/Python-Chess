@@ -5,10 +5,10 @@ from backend.algorithmic_processing.pre_post_processing.input_to_tensor import c
 # --------------------------------- Take Input From Past Three FENs To Establish Temporal Context
 # --------------------------------- Deeper Convolutions, Incorporating ResNet() and AdaptiveAvgPool2D()
 
-# ------------------- Simple Convolution Neural Network Model, Producing <output_number> Move Predictions
+# ------------------- Simple Convolution Neural Network Model
 
 class ConvolutionNN(torch.nn.Module):
-    def __init__(self, output_number):
+    def __init__(self, class_number):
         super().__init__(); 
 
         self.convolution = torch.nn.Sequential(
@@ -24,7 +24,7 @@ class ConvolutionNN(torch.nn.Module):
         self.connections = torch.nn.Sequential(
             torch.nn.Linear(8192, 512), 
             torch.nn.ReLU(), 
-            torch.nn.Linear(512, output_number)
+            torch.nn.Linear(512, class_number)
         )
 
     def make_forward_pass(self, input_value):
@@ -46,7 +46,7 @@ def model_accuracy(batch_training):
     number_correct, number_total = 0; 
     convolution_model.eval(); 
 
-    for X, y in batch_training: 
+    for X, Y, Z, y in batch_training: 
         X, y = X.to("cpu"), y.to("cpu"); 
 
         model_output = convolution_model(X); 
@@ -60,7 +60,7 @@ for epoch in range(number_of_epochs):
     convolution_model.train(); 
     total_loss = 0; 
 
-    for X, y in batch_training:    
+    for X, Y, Z, y in batch_training:    
         X, y = X.to("cpu"), y.to("cpu"); 
 
         optimizing_factor.zero_grad(); 

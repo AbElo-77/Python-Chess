@@ -1,6 +1,8 @@
 from backend.algorithmic_processing.pre_post_processing.input_to_tensor import generate_moves_made
 
 
+# ------------- Currently Not Used, Might Compartmentalize Later
+
 input_files = ['./data/training_dataset/page_1.csv', 
                './data/training_dataset/page_2.csv', 
                './data/training_dataset/page_3.csv', 

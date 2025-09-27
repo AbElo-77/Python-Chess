@@ -31,7 +31,7 @@ model.to("cpu");
 model.eval(); 
 
 
-def predict_move(fen: str) -> str:
+def predict_move_cnn(fen: str) -> str:
     X = fen_to_tensor_cnn(fen).unsqueeze(0).to("cpu"); 
 
     with torch.no_grad():
