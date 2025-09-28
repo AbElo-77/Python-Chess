@@ -2,7 +2,7 @@ import torch;
 from backend.algorithmic_processing.pre_post_processing.input_to_tensor import create_loader; 
 
 # ------------------- Areas For Improvement 
-# --------------------------------- Take Input From Past Three FENs To Establish Temporal Context
+# --------------------------------- Modify loader to pass multiple FENs for temporal context
 # --------------------------------- Deeper Convolutions, Incorporating ResNet() and AdaptiveAvgPool2D()
 
 # ------------------- Simple Recurrent Neural Network Model
@@ -19,7 +19,7 @@ class RecurrentNN(torch.nn.Module):
             torch.nn.Flatten(start_dim=1) 
         ); 
 
-        self.lstm = torch.nn.LSTM(input_size=128*8*8, hidden_size=512, num_layers=1, batch_first=True); 
+        self.lstm = torch.nn.LSTM(input_size=8192, hidden_size=512, num_layers=1, batch_first=True); 
 
         self.connections = torch.nn.Sequential(
             torch.nn.Linear(512, 256), 
@@ -28,23 +28,23 @@ class RecurrentNN(torch.nn.Module):
         ); 
 
     def forward(self, input_value): 
-        batch_size, seq_len, channels, H, W = input_value.size(); 
-        features = []; 
-        for t in range(seq_len): 
-            x_t = input_value[:, t]; 
-            f_t = self.convolution(x_t); 
-            features.append(f_t.unsqueeze(1)); 
-        features = torch.cat(features, dim=1); 
-        lstm_out, _ = self.lstm(features); 
+        batch_size = input_value.size(0); 
+
+        f = self.convolution(input_value);  
+        f = f.unsqueeze(1);  
+
+        lstm_out, _ = self.lstm(f); 
         last_hidden = lstm_out[:, -1, :]; 
+
         return self.connections(last_hidden); 
+
 
 # ------------------- Creating A Loss Function with CrossEntropyLoss()
 
 loss_function = torch.nn.CrossEntropyLoss(); 
 
-convolution_model = RecurrentNN(10).to("cpu"); 
-optimizing_factor = torch.optim.Adam(convolution_model.parameters(), lr=1e-5); 
+recurrent_model = RecurrentNN(10).to("cpu"); 
+optimizing_factor = torch.optim.Adam(recurrent_model.parameters(), lr=1e-5); 
 
 # ------------------- Training The Model With DataLoader
 
@@ -53,23 +53,23 @@ batch_training = create_loader(64);
 
 def model_accuracy(batch_training): 
     number_correct, number_total = 0; 
-    convolution_model.eval(); 
+    recurrent_model.eval(); 
     with torch.no_grad(): 
         for X, Y, Z, y in batch_training: 
             Y, y = Y.to("cpu"), y.to("cpu"); 
-            model_output = convolution_model(Y); 
+            model_output = recurrent_model(Y); 
             predictions = model_output.argmax(dim=1); 
             number_correct += (predictions == y).sum().item(); 
             number_total += y.size(0); 
     return number_correct / number_total; 
 
 for epoch in range(number_of_epochs): 
-    convolution_model.train(); 
+    recurrent_model.train(); 
     total_loss = 0; 
     for X, Y, Z, y in batch_training:    
         Y, y = Y.to("cpu"), y.to("cpu"); 
         optimizing_factor.zero_grad(); 
-        logits = convolution_model(Y); 
+        logits = recurrent_model(Y); 
         loss = loss_function(logits, y); 
         loss.backward(); 
         optimizing_factor.step(); 
@@ -77,5 +77,4 @@ for epoch in range(number_of_epochs):
     accuracy = model_accuracy(batch_training); 
     print(f"Epoch {epoch+1}/{number_of_epochs} - Accuracy: {accuracy:.4f}"); 
 
-trained_convolution_model = torch.save(convolution_model.state_dict(), 
-                                       './backend/algorithmic_processing/models/trained_models.pth'); 
+torch.save(recurrent_model.state_dict(), './backend/algorithmic_processing/models/trained_models.pth'); 

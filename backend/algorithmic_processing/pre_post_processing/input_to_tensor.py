@@ -1,13 +1,7 @@
-import pandas, torch
+import torch, pandas
 from torch.utils.data import Dataset, DataLoader
-import chess, chess.pgn
+import chess
 
-
-# ------------------- Areas For Improvement 
-# --------------------------------- Binary Check For Castling Rights
-# --------------------------------- Move Turn With Row Of Bits
-
-# ------------------- Converting FEN To  CNN, RNN, & GNN Tensors, Generating Moves Made From Dataset
 
 pieces_as_indexes = {
     'P': 0, 'N': 1, 'B': 2, 'Q': 3, 'R': 4, 'K': 5,
@@ -35,86 +29,108 @@ def generate_moves_made(input_files):
 
     return move_to_id, id_to_move; 
 
+move_to_id, id_to_move = generate_moves_made(input_files); 
 
-def fen_to_tensor_cnn(fen: str) -> torch.Tensor: 
+# ------------------------------ For Use By Algorithmic Interface 
+
+def fen_to_tensor_cnn(fen: str) -> torch.Tensor:
     board = chess.Board(fen); 
-    tensor = torch.zeros(12, 8, 8, dtype=torch.float32); 
-
+    X = torch.zeros(12, 8, 8, dtype=torch.float32);
     for square, piece in board.piece_map().items():
-        row = 7 - (square // 8);  
-        col = square % 8; 
-        idx = pieces_as_indexes[piece.symbol()]; 
-        tensor[idx, row, col] = 1.0; 
-    
-    return tensor
+        row_idx = 7 - (square // 8); 
+        col_idx = square % 8; 
+        X[pieces_as_indexes[piece.symbol()], row_idx, col_idx] = 1.0; 
+    return X;
 
-# ----------------------------------------------------------------------------------
-
-def fen_to_tensor_rnn(fen: str) -> torch.Tensor: 
+def fen_to_tensor_rnn(fen: str) -> torch.Tensor:
     board = chess.Board(fen); 
-    tensor = torch.zeros((64, 12), dtype=torch.float32); 
-    
+    X = torch.zeros(64, 12, dtype=torch.float32); 
     for square, piece in board.piece_map().items():
-        idx = chess.square_rank(square) * 8 + chess.square_file(square); 
-        tensor[idx, pieces_as_indexes[piece.symbol()]] = 1.0; 
-    
-    return tensor
+        X[square, pieces_as_indexes[piece.symbol()]] = 1.0; 
+    return X; 
 
-# --- (Work In Progress) -------------------------------------------------------- 
 
-def fen_to_tensor_gnn(fen:str) -> torch.Tensor: 
+def fen_to_tensor_gnn(fen: str):
     board = chess.Board(fen); 
-    tensor = torch.zeroes((64, 12), dtype=torch.float32); 
-   
-    for square, piece in board.piece_map().items(): 
-        idx = square; 
-        tensor[idx, pieces_as_indexes[piece.symbol()]] = 1.0; 
+    # Node features: 64x12
+    node_features = torch.zeros(64, 12, dtype=torch.float32); 
+    for square, piece in board.piece_map().items():
+        node_features[square, pieces_as_indexes[piece.symbol()]] = 1.0; 
 
-    adjacents = torch.zeros((64, 64), dtype=torch.float32); 
-
+    # Adjacency matrix: 64x64, 4-connectivity
+    adjacency_matrix = torch.zeros(64, 64, dtype=torch.float32); 
     for square in range(64):
-        rank, file = divmod(square, 8); 
+        rank, file = divmod(square, 8);
         neighbors = [
             (rank + dr, file + dc)
             for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]
             if 0 <= rank + dr < 8 and 0 <= file + dc < 8
-        ]
+        ];
         for r, f in neighbors:
-            adjacents[square, r*8+f] = 1.0; 
-    
-    return tensor, adjacents
-       
+            adjacency_matrix[square, r*8+f] = 1.0; 
+    return node_features, adjacency_matrix; 
 
-move_to_id, id_to_move = generate_moves_made(input_files); 
-
-# ------------------- Dataset and DataLoader 
+# ----------------------------------------------------------------
 
 class ChessData(Dataset):
-    def __init__(self, input_files, move_to_id): 
-        self.dataframe = pandas.concat([pandas.read_csv(file) for file in input_files], ignore_index=True); 
-        self.move_to_id = move_to_id; 
+    def __init__(self, input_files, move_to_id):
+        self.dataframe = pandas.concat([pandas.read_csv(file) for file in input_files], ignore_index=True)
+        self.move_to_id = move_to_id
 
     def __len__(self):
-        return len(self.dataframe);             
+        return len(self.dataframe)
 
-    def __getitem__(self, id):
-        row = self.dataframe.iloc[id];          
+    def __getitem__(self, idx):
+        row = self.dataframe.iloc[idx]
+        board = chess.Board(row["chess_fen"]); 
 
-        X = fen_to_tensor_cnn(row["chess_fen"]); 
-        Y = fen_to_tensor_rnn(row["chess_fen"]); 
-        Z = fen_to_tensor_gnn(row["chess_fen"]); 
 
-        y = self.move_to_id[row["move_made"]]; 
+        X = torch.zeros(12, 8, 8, dtype=torch.float32)
+        for square, piece in board.piece_map().items():
+            row_idx = 7 - (square // 8); 
+            col_idx = square % 8; 
+            X[pieces_as_indexes[piece.symbol()], row_idx, col_idx] = 1.0; 
+
+        Y = torch.zeros(64, 12, dtype=torch.float32)
+        for square, piece in board.piece_map().items():
+            idx = chess.square_rank(square) * 8 + chess.square_file(square); 
+            Y[idx, pieces_as_indexes[piece.symbol()]] = 1.0; 
+
+        node_features = torch.zeros(64, 12, dtype=torch.float32)
+        for square, piece in board.piece_map().items():
+            node_features[square, pieces_as_indexes[piece.symbol()]] = 1.0
+
+        adjacency_matrix = torch.zeros(64, 64, dtype=torch.float32)
+        for square in range(64):
+            rank, file = divmod(square, 8); 
+            neighbors = [
+                (rank + dr, file + dc)
+                for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]
+                if 0 <= rank + dr < 8 and 0 <= file + dc < 8
+            ]
+            for r, f in neighbors:
+                adjacency_matrix[square, r*8+f] = 1.0; 
+
+        Z = (node_features, adjacency_matrix); 
+
+        y = torch.tensor(self.move_to_id[row["move_made"]], dtype=torch.long); 
+
         return X, Y, Z, y; 
 
-all_dataset = ChessData(input_files, move_to_id); 
+def collate_function(batch):
+    X_batch = torch.stack([item[0] for item in batch])
+    Y_batch = torch.stack([item[1] for item in batch])
+    Z_batch_node = [item[2][0] for item in batch]
+    Z_batch_adj = [item[2][1] for item in batch]
+    y_batch = torch.stack([item[3] for item in batch])
+    return X_batch, Y_batch, list(zip(Z_batch_node, Z_batch_adj)), y_batch
 
-def create_loader(batch_size):
-
-    batch_training = DataLoader(
-    all_dataset, 
-    batch_size = batch_size, 
-    shuffle=True
-    )  
-
-    return batch_training
+def create_loader(batch_size, input_files, move_to_id):
+    dataset = ChessData(input_files, move_to_id)
+    loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        collate_fn=collate_function
+    )
+    return loader

@@ -17,4 +17,4 @@ input_files = ['./data/training_dataset/page_1.csv',
 move_to_id, id_to_move = generate_moves_made(input_files); 
 
 def tensor_to_move(id):
-    return id_to_move[id]
+    return id_to_move[id]; 
