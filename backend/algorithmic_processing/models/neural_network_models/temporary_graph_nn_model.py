@@ -1,5 +1,18 @@
 import torch
-from backend.algorithmic_processing.pre_post_processing.input_to_tensor import create_loader
+from backend.algorithmic_processing.pre_post_processing.input_to_tensor import generate_moves_made, create_loader
+
+input_files = ['./data/training_dataset/page_1.csv', 
+               './data/training_dataset/page_2.csv', 
+               './data/training_dataset/page_3.csv', 
+               './data/training_dataset/page_4.csv', 
+               './data/training_dataset/page_5.csv',
+               './data/training_dataset/page_6.csv', 
+               './data/training_dataset/page_7.csv', 
+               './data/training_dataset/page_8.csv', 
+               './data/training_dataset/page_9.csv', 
+               './data/training_dataset/page_10.csv']
+
+move_to_id, id_to_move = generate_moves_made(input_files); 
 
 # ------------------- Simple Graph Neural Network Model 
 
@@ -34,7 +47,7 @@ optimizing_factor = torch.optim.Adam(graph_model.parameters(), lr=1e-5);
 # ------------------- Training The Model With DataLoader
 
 number_of_epochs = 10; 
-batch_training = create_loader(64); 
+batch_training = create_loader(64, input_files, move_to_id); 
 
 def model_accuracy_gnn(batch_training): 
     number_correct, number_total = 0, 0; 
