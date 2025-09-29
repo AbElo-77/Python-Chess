@@ -52,15 +52,14 @@ def fen_to_tensor_rnn(fen: str) -> torch.Tensor:
 
 def fen_to_tensor_gnn(fen: str):
     board = chess.Board(fen); 
-    # Node features: 64x12
+
     node_features = torch.zeros(64, 12, dtype=torch.float32); 
     for square, piece in board.piece_map().items():
         node_features[square, pieces_as_indexes[piece.symbol()]] = 1.0; 
 
-    # Adjacency matrix: 64x64, 4-connectivity
     adjacency_matrix = torch.zeros(64, 64, dtype=torch.float32); 
     for square in range(64):
-        rank, file = divmod(square, 8);
+        rank, file = divmod(square, 8); 
         neighbors = [
             (rank + dr, file + dc)
             for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]
@@ -91,10 +90,12 @@ class ChessData(Dataset):
             col_idx = square % 8; 
             X[pieces_as_indexes[piece.symbol()], row_idx, col_idx] = 1.0; 
 
-        Y = torch.zeros(64, 12, dtype=torch.float32)
+        Y = torch.zeros(12, 8, 8, dtype=torch.float32)
         for square, piece in board.piece_map().items():
-            idx = chess.square_rank(square) * 8 + chess.square_file(square); 
-            Y[idx, pieces_as_indexes[piece.symbol()]] = 1.0; 
+            row_idx = 7 - (square // 8); 
+            col_idx = square % 8; 
+            Y[pieces_as_indexes[piece.symbol()], row_idx, col_idx] = 1.0; 
+
 
         node_features = torch.zeros(64, 12, dtype=torch.float32)
         for square, piece in board.piece_map().items():

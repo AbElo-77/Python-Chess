@@ -28,17 +28,17 @@ id_to_move = {v: k for k, v in move_to_id.items()}
 num_classes = len(move_to_id); 
 
 cnn_model = ConvolutionNN(num_classes=num_classes); 
-cnn_model.load_state_dict(torch.load("chess_model_cnn.pt", map_location="cpu")); 
+cnn_model.load_state_dict(torch.load("./models/trained_models/trained_models_cnn.pth", map_location="cpu")); 
 cnn_model.to("cpu"); 
 cnn_model.eval(); 
 
 rnn_model = RecurrentNN(num_classes=num_classes); 
-rnn_model.load_state_dict(torch.load("chess_model_rnn.pt", map_location="cpu")); 
+rnn_model.load_state_dict(torch.load("./models/trained_models/trained_models_rnn.pth", map_location="cpu")); 
 rnn_model.to("cpu"); 
 rnn_model.eval(); 
 
 gnn_model = GraphNN(num_classes=num_classes); 
-gnn_model.load_state_dict(torch.load("chess_model_gnn.pt", map_location="cpu")); 
+gnn_model.load_state_dict(torch.load("./models/trained_models/trained_models_gnn.pth", map_location="cpu")); 
 gnn_model.to("cpu"); 
 gnn_model.eval(); 
 

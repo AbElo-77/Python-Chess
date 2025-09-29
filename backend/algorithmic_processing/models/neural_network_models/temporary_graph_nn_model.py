@@ -41,7 +41,7 @@ class GraphNN(torch.nn.Module):
 
 loss_function = torch.nn.CrossEntropyLoss(); 
 
-graph_model = GraphNN(in_features=12, hidden_features=128, class_number=10).to("cpu"); 
+graph_model = GraphNN(in_features=12, hidden_features=128, class_number=len(move_to_id)).to("cpu"); 
 optimizing_factor = torch.optim.Adam(graph_model.parameters(), lr=1e-5); 
 
 # ------------------- Training The Model With DataLoader
@@ -52,6 +52,7 @@ batch_training = create_loader(64, input_files, move_to_id);
 def model_accuracy_gnn(batch_training): 
     number_correct, number_total = 0, 0; 
     graph_model.eval(); 
+    
     with torch.no_grad(): 
         for X, Y, Z, y in batch_training: 
             y = y.to("cpu"); 
@@ -71,9 +72,6 @@ def model_accuracy_gnn(batch_training):
 
     return number_correct / number_total if number_total > 0 else 0; 
 
-number_of_epochs = 10; 
-batch_training = create_loader(64); 
-
 for epoch in range(number_of_epochs): 
     graph_model.train(); 
     total_loss = 0; 
@@ -85,12 +83,12 @@ for epoch in range(number_of_epochs):
         batch_logits = []; 
         batch_loss = 0; 
 
-        for node_features, adjacency_matrix in Z: 
+        for i, (node_features, adjacency_matrix) in enumerate(Z): 
             node_features = node_features.to("cpu"); 
             adjacency_matrix = adjacency_matrix.to("cpu"); 
 
-            logits = graph_model(node_features, adjacency_matrix); 
-            loss = loss_function(logits, y) / len(Z); 
+            logits = graph_model(node_features, adjacency_matrix)  
+            loss = loss_function(logits, y[i].unsqueeze(0)) / len(Z);  
             loss.backward(); 
 
             batch_logits.append(logits); 
