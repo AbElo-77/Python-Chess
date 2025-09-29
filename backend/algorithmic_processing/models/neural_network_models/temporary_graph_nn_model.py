@@ -37,67 +37,69 @@ class GraphNN(torch.nn.Module):
         out = self.fc_two(H); 
         return out; 
 
+if __name__ == "__main__":
+
 # ------------------- Creating A Loss Function with CrossEntropyLoss()
 
-loss_function = torch.nn.CrossEntropyLoss(); 
+    loss_function = torch.nn.CrossEntropyLoss(); 
 
-graph_model = GraphNN(in_features=12, hidden_features=128, class_number=len(move_to_id)).to("cpu"); 
-optimizing_factor = torch.optim.Adam(graph_model.parameters(), lr=1e-5); 
+    graph_model = GraphNN(in_features=12, hidden_features=128, class_number=len(move_to_id)).to("cpu"); 
+    optimizing_factor = torch.optim.Adam(graph_model.parameters(), lr=1e-5); 
 
 # ------------------- Training The Model With DataLoader
 
-number_of_epochs = 10; 
-batch_training = create_loader(64, input_files, move_to_id); 
+    number_of_epochs = 10; 
+    batch_training = create_loader(64, input_files, move_to_id); 
 
-def model_accuracy_gnn(batch_training): 
-    number_correct, number_total = 0, 0; 
-    graph_model.eval(); 
-    
-    with torch.no_grad(): 
-        for X, Y, Z, y in batch_training: 
+    def model_accuracy_gnn(batch_training): 
+        number_correct, number_total = 0, 0; 
+        graph_model.eval(); 
+        
+        with torch.no_grad(): 
+            for X, Y, Z, y in batch_training: 
+                y = y.to("cpu"); 
+                batch_predictions = []; 
+
+                for node_features, adjacency_matrix in Z:  
+                    node_features = node_features.to("cpu"); 
+                    adjacency_matrix = adjacency_matrix.to("cpu"); 
+
+                    logits = graph_model(node_features, adjacency_matrix); 
+                    pred = logits.argmax(dim=1); 
+                    batch_predictions.append(pred); 
+
+                batch_predictions = torch.cat(batch_predictions); 
+                number_correct += (batch_predictions == y).sum().item(); 
+                number_total += y.size(0); 
+
+        return number_correct / number_total if number_total > 0 else 0; 
+
+    for epoch in range(number_of_epochs): 
+        graph_model.train(); 
+        total_loss = 0; 
+        
+        for X, Y, Z, y in batch_training:    
             y = y.to("cpu"); 
-            batch_predictions = []; 
+            optimizing_factor.zero_grad(); 
+            
+            batch_logits = []; 
+            batch_loss = 0; 
 
-            for node_features, adjacency_matrix in Z:  
+            for i, (node_features, adjacency_matrix) in enumerate(Z): 
                 node_features = node_features.to("cpu"); 
                 adjacency_matrix = adjacency_matrix.to("cpu"); 
 
-                logits = graph_model(node_features, adjacency_matrix); 
-                pred = logits.argmax(dim=1); 
-                batch_predictions.append(pred); 
+                logits = graph_model(node_features, adjacency_matrix)  
+                loss = loss_function(logits, y[i].unsqueeze(0)) / len(Z);  
+                loss.backward(); 
 
-            batch_predictions = torch.cat(batch_predictions); 
-            number_correct += (batch_predictions == y).sum().item(); 
-            number_total += y.size(0); 
+                batch_logits.append(logits); 
+                batch_loss += loss.item(); 
 
-    return number_correct / number_total if number_total > 0 else 0; 
+            optimizing_factor.step(); 
+            total_loss += batch_loss; 
 
-for epoch in range(number_of_epochs): 
-    graph_model.train(); 
-    total_loss = 0; 
-    
-    for X, Y, Z, y in batch_training:    
-        y = y.to("cpu"); 
-        optimizing_factor.zero_grad(); 
-        
-        batch_logits = []; 
-        batch_loss = 0; 
+        accuracy = model_accuracy_gnn(batch_training); 
+        print(f"Epoch {epoch+1}/{number_of_epochs} - Loss: {total_loss:.4f} - Accuracy: {accuracy:.4f}"); 
 
-        for i, (node_features, adjacency_matrix) in enumerate(Z): 
-            node_features = node_features.to("cpu"); 
-            adjacency_matrix = adjacency_matrix.to("cpu"); 
-
-            logits = graph_model(node_features, adjacency_matrix)  
-            loss = loss_function(logits, y[i].unsqueeze(0)) / len(Z);  
-            loss.backward(); 
-
-            batch_logits.append(logits); 
-            batch_loss += loss.item(); 
-
-        optimizing_factor.step(); 
-        total_loss += batch_loss; 
-
-    accuracy = model_accuracy_gnn(batch_training); 
-    print(f"Epoch {epoch+1}/{number_of_epochs} - Loss: {total_loss:.4f} - Accuracy: {accuracy:.4f}"); 
-
-torch.save(graph_model.state_dict(), './backend/algorithmic_processing/models/trained_models.pth'); 
+    torch.save(graph_model.state_dict(), './backend/algorithmic_processing/models/trained_models.pth'); 

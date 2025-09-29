@@ -54,48 +54,50 @@ class RecurrentNN(torch.nn.Module):
 
         return self.connections(last_hidden); 
 
+if __name__ == "__main__":
+
 # ------------------- Creating A Loss Function with CrossEntropyLoss()
 
-loss_function = torch.nn.CrossEntropyLoss(); 
+    loss_function = torch.nn.CrossEntropyLoss(); 
 
-recurrent_model = RecurrentNN(len(move_to_id)).to("cpu"); 
-optimizing_factor = torch.optim.Adam(recurrent_model.parameters(), lr=1e-5); 
+    recurrent_model = RecurrentNN(len(move_to_id)).to("cpu"); 
+    optimizing_factor = torch.optim.Adam(recurrent_model.parameters(), lr=1e-5); 
 
 # ------------------- Training The Model With DataLoader
 
-number_of_epochs = 10; 
-batch_training = create_loader(64, input_files, move_to_id); 
+    number_of_epochs = 10; 
+    batch_training = create_loader(64, input_files, move_to_id); 
 
-def model_accuracy(batch_training): 
-    number_correct = 0; 
-    number_total = 0; 
-    recurrent_model.eval(); 
+    def model_accuracy(batch_training): 
+        number_correct = 0; 
+        number_total = 0; 
+        recurrent_model.eval(); 
 
-    with torch.no_grad(): 
+        with torch.no_grad(): 
 
-        for X, Y, Z, y in batch_training: 
+            for X, Y, Z, y in batch_training: 
+                Y, y = Y.to("cpu"), y.to("cpu"); 
+                model_output = recurrent_model(Y); 
+                predictions = model_output.argmax(dim=1); 
+                number_correct += (predictions == y).sum().item(); 
+                number_total += y.size(0); 
+        
+        return number_correct / number_total; 
+
+    for epoch in range(number_of_epochs): 
+        recurrent_model.train(); 
+        total_loss = 0; 
+
+        for X, Y, Z, y in batch_training:    
             Y, y = Y.to("cpu"), y.to("cpu"); 
-            model_output = recurrent_model(Y); 
-            predictions = model_output.argmax(dim=1); 
-            number_correct += (predictions == y).sum().item(); 
-            number_total += y.size(0); 
-    
-    return number_correct / number_total; 
+            optimizing_factor.zero_grad(); 
+            logits = recurrent_model(Y); 
+            loss = loss_function(logits, y); 
+            loss.backward(); 
+            optimizing_factor.step(); 
+            total_loss += loss.item(); 
+        
+        accuracy = model_accuracy(batch_training); 
+        print(f"Epoch {epoch+1}/{number_of_epochs} - Accuracy: {accuracy:.4f}"); 
 
-for epoch in range(number_of_epochs): 
-    recurrent_model.train(); 
-    total_loss = 0; 
-
-    for X, Y, Z, y in batch_training:    
-        Y, y = Y.to("cpu"), y.to("cpu"); 
-        optimizing_factor.zero_grad(); 
-        logits = recurrent_model(Y); 
-        loss = loss_function(logits, y); 
-        loss.backward(); 
-        optimizing_factor.step(); 
-        total_loss += loss.item(); 
-    
-    accuracy = model_accuracy(batch_training); 
-    print(f"Epoch {epoch+1}/{number_of_epochs} - Accuracy: {accuracy:.4f}"); 
-
-torch.save(recurrent_model.state_dict(), './backend/algorithmic_processing/models/trained_models.pth'); 
+    torch.save(recurrent_model.state_dict(), './backend/algorithmic_processing/models/trained_models.pth'); 
