@@ -28,13 +28,23 @@ class GraphNN(torch.nn.Module):
 
     def forward(self, X, A):
 
-        H = torch.relu(A @ self.W1(X)); 
-        H = torch.relu(A @ self.W2(H));
+        if X.dim() == 2:
+            X = X.unsqueeze(0); 
+            A = A.unsqueeze(0); 
 
-        H = H.mean(dim=0, keepdim=True); 
-        H = torch.relu(self.fc_one(H)); 
+        batch_size, num_nodes, _ = X.size(); 
 
-        out = self.fc_two(H); 
+        H = self.W1(X); 
+        H = torch.matmul(A, H); 
+        H = torch.nn.functional.relu(H); 
+
+        H = self.W2(H);             
+        H = torch.matmul(A, H); 
+        H = torch.nn.functional.relu(H); 
+
+        H = H.mean(dim=1);          
+
+        out = self.fc_one(H);        
         return out; 
 
 if __name__ == "__main__":

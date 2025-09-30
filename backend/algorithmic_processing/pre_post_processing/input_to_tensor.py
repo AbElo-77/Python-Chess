@@ -33,7 +33,7 @@ move_to_id, id_to_move = generate_moves_made(input_files);
 
 # ------------------------------ For Use By Algorithmic Interface 
 
-def fen_to_tensor_cnn(fen: str) -> torch.Tensor:
+def fen_to_tensor_cnn(fen: str) -> torch.Tensor: # For Both CNN and RNN As Of Now
     board = chess.Board(fen); 
     X = torch.zeros(12, 8, 8, dtype=torch.float32);
     for square, piece in board.piece_map().items():
@@ -53,21 +53,28 @@ def fen_to_tensor_rnn(fen: str) -> torch.Tensor:
 def fen_to_tensor_gnn(fen: str):
     board = chess.Board(fen); 
 
-    node_features = torch.zeros(64, 12, dtype=torch.float32); 
+    node_features = torch.zeros(64, 12, dtype=torch.float32)
+
     for square, piece in board.piece_map().items():
-        node_features[square, pieces_as_indexes[piece.symbol()]] = 1.0; 
+            node_features[square, pieces_as_indexes[piece.symbol()]] = 1.0
 
     adjacency_matrix = torch.zeros(64, 64, dtype=torch.float32); 
+
     for square in range(64):
-        rank, file = divmod(square, 8); 
-        neighbors = [
-            (rank + dr, file + dc)
-            for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]
-            if 0 <= rank + dr < 8 and 0 <= file + dc < 8
-        ];
-        for r, f in neighbors:
-            adjacency_matrix[square, r*8+f] = 1.0; 
-    return node_features, adjacency_matrix; 
+            rank, file = divmod(square, 8); 
+            neighbors = [
+                (rank + dr, file + dc)
+                for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]
+                if 0 <= rank + dr < 8 and 0 <= file + dc < 8
+            ]
+            for r, f in neighbors:
+                adjacency_matrix[square, r*8+f] = 1.0; 
+    
+    node_features = node_features.unsqueeze(0); 
+    adjacency_matrix = adjacency_matrix.unsqueeze(0); 
+
+    Z = (node_features, adjacency_matrix); 
+    return Z; 
 
 # ----------------------------------------------------------------
 
