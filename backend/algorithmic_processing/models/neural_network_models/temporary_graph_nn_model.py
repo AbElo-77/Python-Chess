@@ -42,9 +42,11 @@ class GraphNN(torch.nn.Module):
         H = torch.matmul(A, H); 
         H = torch.nn.functional.relu(H); 
 
-        H = H.mean(dim=1);          
+        H = H.mean(dim=1); 
 
-        out = self.fc_one(H);        
+        out = self.fc_one(H); 
+        out = torch.nn.functional.relu(out)
+        out = self.fc_two(out); 
         return out; 
 
 if __name__ == "__main__":
@@ -86,28 +88,59 @@ if __name__ == "__main__":
 
     for epoch in range(number_of_epochs): 
         graph_model.train(); 
-        total_loss = 0; 
-        
+        total_loss = 0.0; 
+
         for X, Y, Z, y in batch_training:    
-            y = y.to("cpu"); 
+            device = next(graph_model.parameters()).device
+            y = y.to(device); 
             optimizing_factor.zero_grad(); 
-            
+
+            batch_loss = 0.0; 
             batch_logits = []; 
-            batch_loss = 0; 
+
+            num_classes = graph_model.fc_two.out_features; 
+
+            if y.numel() > 0:
+                if y.max().item() >= num_classes or y.min().item() < 0:
+                    raise ValueError("Target labels out of bounds vs model output classes"); 
 
             for i, (node_features, adjacency_matrix) in enumerate(Z): 
-                node_features = node_features.to("cpu"); 
-                adjacency_matrix = adjacency_matrix.to("cpu"); 
+                node_features = node_features.to(device); 
+                adjacency_matrix = adjacency_matrix.to(device); 
 
-                logits = graph_model(node_features, adjacency_matrix)  
-                loss = loss_function(logits, y[i].unsqueeze(0)) / len(Z);  
-                loss.backward(); 
+                logits = graph_model(node_features, adjacency_matrix);  
+                
+                if not torch.isfinite(logits).all():
+                    raise ValueError("Non-finite logits produced by model"); 
+
+                loss = loss_function(logits, y[i].unsqueeze(0));  
+                if not torch.isfinite(loss):
+                    raise ValueError("Non-finite loss computed"); 
 
                 batch_logits.append(logits); 
-                batch_loss += loss.item(); 
+                batch_loss = batch_loss + loss; 
 
-            optimizing_factor.step(); 
-            total_loss += batch_loss; 
+            batch_size_here = len(Z) if len(Z) > 0 else 1
+            batch_loss = batch_loss / batch_size_here; 
+
+            if not torch.isfinite(batch_loss):
+                raise ValueError("Batch loss is not finite"); 
+
+            batch_loss.backward(); 
+
+            grads_ok = True; 
+            for p in graph_model.parameters():
+                if p.grad is not None and not torch.isfinite(p.grad).all():
+                    grads_ok = False; 
+                    break; 
+
+            if not grads_ok:
+                optimizing_factor.zero_grad(); 
+            else:
+                torch.nn.utils.clip_grad_norm_(graph_model.parameters(), max_norm=1.0); 
+                optimizing_factor.step(); 
+
+            total_loss += batch_loss.item(); 
 
         accuracy = model_accuracy_gnn(batch_training); 
         print(f"Epoch {epoch+1}/{number_of_epochs} - Loss: {total_loss:.4f} - Accuracy: {accuracy:.4f}"); 
