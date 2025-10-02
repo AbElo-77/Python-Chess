@@ -1,5 +1,5 @@
 from flask import Flask, jsonify, request
-from backend.algorithmic_processing.algorithm_interface import predict_move_cnn
+from backend.algorithmic_processing.algorithm_interface import predict_move_cnn, predict_move_rnn, predict_move_gnn
 import chess
 
 app = Flask(__name__); 

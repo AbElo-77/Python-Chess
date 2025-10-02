@@ -94,6 +94,3 @@ def predict_move_gnn(fen: str) -> str:
             return id_to_move[move]; 
     
     return "There is no legal move predicted."; 
-
-
-print(predict_move_gnn('rnbqkbnr/pppppppp/8/8/2P5/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1')); 
