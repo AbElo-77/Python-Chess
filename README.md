@@ -33,6 +33,7 @@ A chess engine / AI project built in Python (with SQL backend, machine learning,
 This project is an attempt to build a chess AI that mimics a player’s style by training models on their game data. It combines chess logic, data storage, and machine learning to evolve an adaptive opponent.  
 
 It is being developed using Python, SQL, and specialized chess / ML libraries. Future improvements include increasing the size of the dataset, along with incorporating a Reinforcement Learning with Human Feedback (RLHF) model. 
+
 ---
 
 ## Features
