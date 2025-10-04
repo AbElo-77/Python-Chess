@@ -37,7 +37,17 @@ function onClick() {
   justify-content: center;
   user-select: none;
 }
-.light { background: #f0d9b5; }
-.dark { background: #b58863; }
-.selected { outline: 3px solid rgba(255, 215, 0, 0.8); }
+.light { 
+    background: #f0d9b5;
+    text-align: center;
+ }
+
+.dark { 
+    background: #b58863;
+    text-align: center;
+ }
+
+.selected { 
+    outline: 3px solid rgba(255, 215, 0, 0.8);
+ }
 </style>
