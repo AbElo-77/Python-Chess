@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import ChessBoard from '@/components/GamePage Components/ChessBoard.vue'
+import ChessBoard from '@/views/ChessBoard.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -12,7 +12,7 @@ const router = createRouter({
     {
       path: '/fen-playhouse',
       name: 'FEN-playhouse',
-      component: () => import('@/components/FENPage Components/FENBoard.vue'),
+      component: () => import('@/views/FENBoard.vue'),
     },
   ],
 })
