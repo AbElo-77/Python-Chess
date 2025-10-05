@@ -1,9 +1,5 @@
 <template>
   <div class="board">
-    <div class="controls">
-      <button @click="requestMove">Request move (backend)</button>
-    </div>
-
     <div class="board-grid">
       <div v-for="(rank, rIdx) in ranks" :key="rIdx" class="board-row">
         <div
@@ -23,6 +19,7 @@
 </template>
 
 <script>
+
 export default {
   name: 'ChessBoard',
 
@@ -39,12 +36,16 @@ export default {
       selected: null,
       pieces: Array.from({ length: 8 }, () => Array(8).fill(null)),
       dragStart: null,
+      debugUseStartingFen: true,
+      startingFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
     };
   },
 
   mounted() {
     if (this.fen) {
       this.pieces = this.parseFen(this.fen);
+    } else if (this.debugUseStartingFen) {
+      this.pieces = this.parseFen(this.startingFen);
     } else {
       this.fetchBoard();
     }
@@ -70,14 +71,30 @@ export default {
         const from = this.toAlgebraic(this.dragStart);
         const to = this.toAlgebraic(square);
 
+        const uci = `${from}${to}`;
         const backup = this.clonePieces();
         const applied = this.applyLocalMove(from, to);
         this.dragStart = null;
-        
-        this.postFenAndUpdate(this.serializePiecesToFen()).catch((err) => {
-          console.warn('move failed, rolling back', err);
+
+        fetch('http://127.0.0.1:5000/make_move_user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ move: uci })
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            this.pieces = this.parseFen(data.board_fen);
+          } else {
+            console.warn('server rejected move:', data.error);
+            this.pieces = backup;
+          }
+        })
+        .catch((err) => {
+          console.error('failed to send user move', err);
           this.pieces = backup;
         });
+
         this.$emit('move', { from, to });
       }
     },
@@ -88,7 +105,7 @@ export default {
       let nr = rank;
       let nf = file;
       if (e.key === 'ArrowUp') nf = Math.min(7, file - 1);
-      if (e.key === 'ArrowDown') nf = Math.max(0, file - 1);
+      if (e.key === 'ArrowDown') nf = Math.max(0, file + 1);
       if (e.key === 'ArrowLeft') nr = Math.max(0, rank + 1);
       if (e.key === 'ArrowRight') nr = Math.min(7, rank - 1);
       if (nr !== rank || nf !== file) {
@@ -108,9 +125,9 @@ export default {
         let file = 0;
         for (const ch of row) {
           if (/[1-8]/.test(ch)) {
-            file += parseInt(ch, 10);
+            file += 1;
           } else {
-            out[7 - r][file] = ch;
+            out[file][7 - r] = ch;
             file += 1;
           }
         }
@@ -178,7 +195,7 @@ export default {
 
     async fetchBoard() {
       try {
-        const res = await fetch('/board');
+        const res = await fetch('http://127.0.0.1:5000/board');
         const data = await res.json();
         this.pieces = this.parseFen(data.board_fen);
       } catch (e) {
@@ -189,7 +206,7 @@ export default {
     async requestMove() {
       try {
         const fen = this.serializePiecesToFen();
-        const res = await fetch('/move_cnn', {
+        const res = await fetch('http://127.0.0.1:5000/move_cnn', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ current_fen: fen })
@@ -210,8 +227,10 @@ export default {
     },
 
     applyLocalMove(fromAlgebraic, toAlgebraic) {
+
       const from = this.algebraicToCoords(fromAlgebraic);
       const to = this.algebraicToCoords(toAlgebraic);
+
       if (!from || !to) return false;
       const piece = this.pieces[from.rank][from.file];
 
@@ -221,7 +240,7 @@ export default {
     },
 
     async postFenAndUpdate(fen) {
-      const res = await fetch('/move_cnn', {
+      const res = await fetch('http://127.0.0.1:5000/move_cnn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ current_fen: fen })
@@ -265,6 +284,7 @@ export default {
     justify-content: center;
     align-items: center;
     padding: 8px;
+    margin-top: 2rem;
     box-sizing: border-box;
     width: 100vw;
 }
