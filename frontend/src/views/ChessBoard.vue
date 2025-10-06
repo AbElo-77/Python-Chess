@@ -4,14 +4,14 @@
       <div v-for="(rank, rIdx) in ranks" :key="rIdx" class="board-row">
         <div
           v-for="(file, fIdx) in files"
-          :key="`${rIdx}-${fIdx}`"
-          :id="squareId(rank, file)"
-          :class="['square', isLight(rank, file) ? 'light' : 'dark', selected && selected.rank === rank && selected.file === file ? 'selected' : '']"
+          :key="`${fIdx}-${rIdx}`"
+          :id="squareId(file, rank)"
+          :class="['square', isLight(file, rank) ? 'light' : 'dark', selected && selected.rank === rank && selected.file === file ? 'selected' : '']"
           @click="onSelect({ rank, file })"
-          @mousedown.prevent="onMouseDown({ rank, file })"
-          @mouseup.prevent="onMouseUp({ rank, file })"
+          @mousedown.prevent="onMouseDown({ file, rank })"
+          @mouseup.prevent="onMouseUp({ file, rank })"
         >
-          <img v-if="pieces[rank] && pieces[rank][file]" :src="getPieceImage(pieces[rank][file])" :alt="pieces[rank][file]" class="piece-img" />
+          <img v-if="pieces[file] && pieces[file][rank]" :src="getPieceImage(pieces[file][rank])" :alt="pieces[file][rank]" class="piece-img" />
         </div>
       </div>
     </div>
@@ -19,7 +19,6 @@
 </template>
 
 <script>
-
 export default {
   name: 'ChessBoard',
 
@@ -31,26 +30,34 @@ export default {
 
   data() {
     return {
-      ranks: [7,6,5,4,3,2,1,0],
-      files: [0,1,2,3,4,5,6,7],
+      ranks: [0, 1, 2, 3, 4, 5, 6, 7],
+      files: [0, 1, 2, 3, 4, 5, 6, 7],
       selected: null,
       pieces: Array.from({ length: 8 }, () => Array(8).fill(null)),
       dragStart: null,
       debugUseStartingFen: true,
-      startingFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+      localFen: this.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
     };
   },
 
+  watch: {
+  fen(newFen) {
+    if (newFen && newFen !== this.localFen) {
+      this.localFen = newFen;
+      this.pieces = this.parseFen(newFen);
+      }
+    }
+  }, 
+
   mounted() {
-    if (this.fen) {
-      this.pieces = this.parseFen(this.fen);
-    } else if (this.debugUseStartingFen) {
-      this.pieces = this.parseFen(this.startingFen);
+    if (this.localFen) {
+      this.pieces = this.parseFen(this.localFen);
     } else {
       this.fetchBoard();
     }
     window.addEventListener('keydown', this.onKeyDown);
   },
+
   beforeUnmount() {
     window.removeEventListener('keydown', this.onKeyDown);
   },
@@ -79,12 +86,16 @@ export default {
         fetch('http://127.0.0.1:5000/make_move_user', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ move: uci })
+          body: JSON.stringify({ move: uci, current_fen: this.localFen })
         })
         .then(r => r.json())
         .then(data => {
           if (data.success) {
             this.pieces = this.parseFen(data.board_fen);
+            this.localFen = data.board_fen;
+            this.$emit('update:fen', data.board_fen); 
+
+            this.requestMove();
           } else {
             console.warn('server rejected move:', data.error);
             this.pieces = backup;
@@ -125,7 +136,7 @@ export default {
         let file = 0;
         for (const ch of row) {
           if (/[1-8]/.test(ch)) {
-            file += 1;
+            file += parseInt(ch, 10);
           } else {
             out[file][7 - r] = ch;
             file += 1;
@@ -175,7 +186,7 @@ export default {
             file += parseInt(ch, 10);
           } else {
             const filesArr = ['a','b','c','d','e','f','g','h'];
-            const algebraic = `${filesArr[file]}${8 - r}`;
+            const algebraic = `${filesArr[file]}${7 - r}`;
             const id = `square-${algebraic}`;
             map[id] = ch;
             file += 1;
@@ -205,7 +216,7 @@ export default {
 
     async requestMove() {
       try {
-        const fen = this.serializePiecesToFen();
+        const fen = this.localFen;
         const res = await fetch('http://127.0.0.1:5000/move_cnn', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -214,6 +225,8 @@ export default {
         const data = await res.json();
         if (data.success) {
           this.pieces = this.parseFen(data.board_fen);
+          this.localFen = data.board_fen;
+          this.$emit('update:fen', data.board_fen); 
         } else {
           console.warn('move rejected', data.error);
         }
@@ -234,8 +247,8 @@ export default {
       if (!from || !to) return false;
       const piece = this.pieces[from.rank][from.file];
 
-  this.pieces[from.rank][from.file] = null;
-  this.pieces[to.rank][to.file] = piece;
+      this.pieces[from.rank][from.file] = null;
+      this.pieces[to.rank][to.file] = piece;
       return true;
     },
 
@@ -259,7 +272,7 @@ export default {
         let row = '';
         let empty = 0;
         for (let f = 0; f < 8; f++) {
-          const p = this.pieces[r][f];
+          const p = this.pieces[f][r];
           if (!p) {
             empty += 1;
           } else {
@@ -273,7 +286,7 @@ export default {
       return rows.join('/') + ' w - - 0 1';
     }
   }
-};
+}
 </script>
 
 <style scoped>

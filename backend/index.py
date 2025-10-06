@@ -6,28 +6,28 @@ import chess, flask_cors
 
 app = Flask(__name__); 
 
-flask_cors.CORS(app); 
-
-board = chess.Board(); 
+flask_cors.CORS(app);  
 
 @app.route("/")
 def home():
     return "Python Chess Backend - Abdalla Elokely"; 
 
-@app.route("/board")
-def get_board():
-    payload = {
-        "board_fen": board.fen(),
-        "is_game_over": board.is_game_over(),
-        "result": board.result() if board.is_game_over() else None
-    }
+# @app.route("/board")
+# def get_board():
+#     payload = {
+#         "board_fen": board.fen(),
+#         "is_game_over": board.is_game_over(),
+#         "result": board.result() if board.is_game_over() else None
+#     }
     
-    return jsonify(payload); 
+#     return jsonify(payload); 
 
 @app.route("/make_move_user", methods=["POST"])  
 def make_user_move():
     data = request.get_json(); 
-    move_str = data.get("move") or data.get("uci") or data.get("uci_move"); 
+    board = chess.Board(data.get("current_fen")); 
+    move_str = data.get("move"); 
+
     if not move_str:
         return jsonify({"success": False, "error": "No move provided"}); 
 
@@ -39,9 +39,8 @@ def make_user_move():
 
             return jsonify(payload); 
         else:
-            payload = {"success": False, "error": "Illegal Move"}; 
+            payload = {"success": False, "error": f"Illegal Move - {data.get("current_fen")} - {move_str}"}; 
             return jsonify(payload); 
-
     except Exception as e:
         payload = {"success": False, "error": str(e)}; 
         return jsonify(payload); 
@@ -49,6 +48,7 @@ def make_user_move():
 @app.route("/move_cnn", methods=["POST"])
 def make_move_cnn():
     data = request.get_json(); 
+    board = chess.Board(data.get("current_fen")); 
     board_fen = data.get("current_fen"); 
 
     move = predict_move_cnn(board_fen); 
@@ -58,12 +58,11 @@ def make_move_cnn():
         if move_obj in board.legal_moves:
             board.push(move_obj); 
             payload = {"success": True, "board_fen": board.fen()}; 
-            return jsonify(payload); 
 
+            return jsonify(payload); 
         else:
             payload = {"success": False, "error": "Illegal Move"}; 
             return jsonify(payload); 
-        
     except Exception as e:
         payload = {"success": False, "error": str(e)}; 
         return jsonify(payload); 
