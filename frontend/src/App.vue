@@ -40,4 +40,9 @@ nav a {
 nav a:first-of-type {
   border: 0;
 }
+
+div {
+  font-size: 2rem;
+}
+
 </style>

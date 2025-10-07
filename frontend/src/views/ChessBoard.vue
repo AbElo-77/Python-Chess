@@ -1,28 +1,44 @@
 <template>
-  <div class="board">
-    <div class="board-grid">
-      <div v-for="(rank, rIdx) in ranks" :key="rIdx" class="board-row">
-        <div
-          v-for="(file, fIdx) in files"
-          :key="`${fIdx}-${rIdx}`"
-          :id="squareId(file, rank)"
-          :class="['square', isLight(file, rank) ? 'light' : 'dark', selected && selected.rank === rank && selected.file === file ? 'selected' : '']"
-          @click="onSelect({ rank, file })"
-          @mousedown.prevent="onMouseDown({ file, rank })"
-          @mouseup.prevent="onMouseUp({ file, rank })"
-        >
-          <img v-if="pieces[file] && pieces[file][rank]" :src="getPieceImage(pieces[file][rank])" :alt="pieces[file][rank]" class="piece-img" />
+  <div class="game-page">
+    <div class="player-information">
+      <GamePagePlayer
+      :capturedPieces="capturedPieces"
+      :computerPieces="computerPieces"
+      />
+    </div>
+    <div class="board">
+      <div class="board-grid">
+        <div v-for="(rank, rIdx) in ranks" :key="rIdx" class="board-row">
+          <div
+            v-for="(file, fIdx) in files"
+            :key="`${fIdx}-${rIdx}`"
+            :id="squareId(file, rank)"
+            :class="['square', isLight(file, rank) ? 'light' : 'dark', selected && selected.rank === rank && selected.file === file ? 'selected' : '']"
+            @click="onSelect({ rank, file })"
+            @mousedown.prevent="onMouseDown({ file, rank })"
+            @mouseup.prevent="onMouseUp({ file, rank })"
+          >
+            <img v-if="pieces[file] && pieces[file][rank]" :src="getPieceImage(pieces[file][rank])" :alt="pieces[file][rank]" class="piece-img" />
+          </div>
         </div>
       </div>
+    </div>
+    <div class="options-menu">
+      <GamePageNavigation
+      @model-change="modelChange"
+    ></GamePageNavigation>
     </div>
   </div>
 </template>
 
 <script>
+import GamePageNavigation from '@/components/GamePageComponents/GamePageNavigation.vue';
+import GamePagePlayer from '@/components/GamePageComponents/GamePagePlayer.vue';
+
 export default {
   name: 'ChessBoard',
 
-  components: {},
+  components: {GamePageNavigation, GamePagePlayer},
 
   props: {
     fen: { type: String, required: false }
@@ -36,8 +52,11 @@ export default {
       pieces: Array.from({ length: 8 }, () => Array(8).fill(null)),
       dragStart: null,
       debugUseStartingFen: true,
-      localFen: this.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
-    };
+      localFen: this.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      currentModel: 'cnn',
+      capturedPieces: [],
+      computerPieces: [],
+      };
   },
 
   watch: {
@@ -63,6 +82,12 @@ export default {
   },
 
   methods: {
+
+    modelChange(model) {
+      this.currentModel = model;
+
+    }, 
+
     onSelect(square) {
       this.selected = square;
       this.$emit('square-selected', this.toAlgebraic(square));
@@ -93,6 +118,8 @@ export default {
           if (data.success) {
             this.pieces = this.parseFen(data.board_fen);
             this.localFen = data.board_fen;
+            if (data.capture) { this.capturedPieces.push(this.getPieceImage(data.capture)) };
+            this.capturedPieces = this.capturedPieces.sort(); 
             this.$emit('update:fen', data.board_fen); 
 
             this.requestMove();
@@ -217,7 +244,7 @@ export default {
     async requestMove() {
       try {
         const fen = this.localFen;
-        const res = await fetch('http://127.0.0.1:5000/move_cnn', {
+        const res = await fetch(`http://127.0.0.1:5000/move_${this.currentModel}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ current_fen: fen })
@@ -226,6 +253,8 @@ export default {
         if (data.success) {
           this.pieces = this.parseFen(data.board_fen);
           this.localFen = data.board_fen;
+          if (data.capture) { this.computerPieces.push(this.getPieceImage(data.capture))};
+          this.computerPieces = this.computerPieces.sort(); 
           this.$emit('update:fen', data.board_fen); 
         } else {
           console.warn('move rejected', data.error);
@@ -291,6 +320,19 @@ export default {
 
 <style scoped>
 
+.game-page {
+  display: flex; 
+  justify-content: center;
+}
+
+.player-information {
+  display: flex; 
+  justify-content: space-between;
+  box-sizing: border-box;
+  width: 25vw;
+  padding: 0rem 0.5rem;
+}
+
 .board {
     display: flex;
     flex-direction: column;
@@ -299,11 +341,10 @@ export default {
     padding: 8px;
     margin-top: 2rem;
     box-sizing: border-box;
-    width: 100vw;
 }
 
 .board-grid {
-  --square-size: 7vw;
+  --square-size: 6vw;
   display: grid;
   grid-template-columns: repeat(8, var(--square-size));
   grid-template-rows: repeat(8, var(--square-size));
@@ -330,4 +371,15 @@ export default {
 .light { background: #f0d9b5; }
 .dark { background: #b58863; }
 .selected { outline: 3px solid rgba(255, 215, 0, 0.8); }
+
+.square > img {
+  max-height: 90%;
+}
+
+.options-menu {
+  display: flex; 
+  justify-content: center;
+  box-sizing: border-box;
+  width: 22.5vw;
+}
 </style>
