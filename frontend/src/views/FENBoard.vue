@@ -27,7 +27,6 @@
         <button @click="loadFen">Load FEN</button>
         <button @click="resetBoard">Reset Board</button>
       </div>
-      <p><strong>Current FEN:</strong> {{ fen }}</p>
     </div>
   </div>
 </template>
@@ -166,11 +165,12 @@ export default {
 
 .fen-page {
   display: flex;
-  justify-content: space-around;
+  justify-content: center;
   align-items: flex-start;
   gap: 2rem;
   margin-top: 2rem;
   color: white;
+  width: 100vw;
 }
 
 .fen-controls {
