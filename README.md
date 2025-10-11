@@ -20,7 +20,6 @@ A chess engine / AI project built in Python (with SQL backend, machine learning,
   - [Configuration](#configuration)  
   - [Running](#running)  
 - [Usage](#usage)  
-- [Model / Training](#model--training)  
 - [Contributing](#contributing)  
 - [Roadmap](#roadmap)  
 - [License](#license)  
@@ -72,4 +71,62 @@ It is being developed using Python, SQL, and specialized chess / ML libraries. F
 
 ### Installation
 
-...
+```bash
+git clone https://github.com/AbElo-77/Python-Chess.git
+cd Python-Chess
+
+
+python -m venv venv
+source venv/bin/activate   # macOS / Linux
+venv\Scripts\activate      # Windows
+
+
+pip install pytorch
+pip install pytorch-geometric
+pip install pandas
+```
+
+### Configuration 
+
+Choose the NN model you want to train, Convolutional, Recurrent, or Graph.  
+
+### Running
+
+``` bash
+python -m backend.index # Run The Flask Backend 
+
+cd frontend
+npm run dev 
+```
+
+## Usage
+
+- Upload 10-20K personal games or use a public dataset (recommended).
+- - Lichess for multi-million game PGN files and KingBase Lite for 10-25K game PGN files.
+- Trained chosen model using the same class number, len(move_to_id). 
+
+## Roadmap
+
+Upcoming planned improvements include
+
+1. Alpha release: basic AI vs human with learned model + shallow search
+2. Analytics dashboard: graphs of your style, mistakes, openings repertoire
+3. Tuning control: user can shift AI style weight (aggressive, passive, unpredictable)
+4. Self-play mode: model plays against itself to generate synthetic training data
+5. Multiplayer mode / online server support (WebSocket integration)
+6. Persisted user accounts, game history sync
+7. Support for variant chess modes (Chess960, bughouse)
+8. Model improvements: transformer-based models, reinforcement learning, meta-learning
+
+## Contributing 
+
+Please contribute using PEP8 guidelines and updating the README, or contact me using the contacts below. 
+
+## License 
+
+This project is licensed under the MIT license. 
+
+## Contacts
+
+- GitHub: AbElo-77
+- Email: abdallaelokely@gmail.com

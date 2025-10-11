@@ -2,7 +2,7 @@ import pandas
 import chess, chess.pgn  
 
 # chess_csv = pandas.DataFrame(columns=['game_id','white', 'black', 'white_elo', 'black_elo', 'chess_fen', 'move_made']); 
-# game_file = open('./data/PGN_files/page_10.pgn'); 
+# game_file = open('./data/PGN_files/chess_com_games_2025-10-10(31).pgn'); 
 
 # current_game = chess.pgn.read_game(game_file); 
 # game_id = 0;  
@@ -28,4 +28,4 @@ import chess, chess.pgn
 
 #     current_game = chess.pgn.read_game(game_file); 
 
-# chess_csv.to_csv('./data/training_dataset/page_10.csv', index=False); 
+# chess_csv.to_csv('./data/training_dataset/page_42.csv', index=False); 

@@ -1,5 +1,5 @@
 from flask import Flask, jsonify, request
-from backend.algorithmic_processing.algorithm_interface import predict_move_cnn, predict_move_rnn, predict_move_gnn
+from backend.algorithmic_processing.algorithm_interface import predict_move_cnn
 import chess, flask_cors
 
 
@@ -87,67 +87,67 @@ def make_move_cnn():
         payload = {"success": False, "error": str(e)}; 
         return jsonify(payload); 
 
-@app.route("/move_rnn", methods=["POST"])
-def make_move_rnn():
-    data = request.get_json(); 
-    board = chess.Board(data.get("current_fen")); 
-    board_fen = data.get("current_fen"); 
+# @app.route("/move_rnn", methods=["POST"])
+# def make_move_rnn():
+#     data = request.get_json(); 
+#     board = chess.Board(data.get("current_fen")); 
+#     board_fen = data.get("current_fen"); 
 
-    move = predict_move_rnn(board_fen); 
+#     move = predict_move_rnn(board_fen); 
 
-    try:
-        move_obj = chess.Move.from_uci(move); 
-        if move_obj in board.legal_moves:
-            captured_piece_symbol = None; 
+#     try:
+#         move_obj = chess.Move.from_uci(move); 
+#         if move_obj in board.legal_moves:
+#             captured_piece_symbol = None; 
 
-            if board.is_capture(move_obj):
-                captured_piece = board.piece_at(move_obj.to_square); 
-                captured_piece_symbol = captured_piece.symbol() if captured_piece else None; 
+#             if board.is_capture(move_obj):
+#                 captured_piece = board.piece_at(move_obj.to_square); 
+#                 captured_piece_symbol = captured_piece.symbol() if captured_piece else None; 
 
-            board.push(move_obj); 
-            payload = {"success": True, "board_fen": board.fen()}; 
+#             board.push(move_obj); 
+#             payload = {"success": True, "board_fen": board.fen()}; 
 
-            if captured_piece_symbol is not None:
-                payload["capture"] = captured_piece_symbol; 
+#             if captured_piece_symbol is not None:
+#                 payload["capture"] = captured_piece_symbol; 
 
-            return jsonify(payload); 
-        else:
-            payload = {"success": False, "error": "Illegal Move"}; 
-            return jsonify(payload); 
-    except Exception as e:
-        payload = {"success": False, "error": str(e)}; 
-        return jsonify(payload); 
+#             return jsonify(payload); 
+#         else:
+#             payload = {"success": False, "error": "Illegal Move"}; 
+#             return jsonify(payload); 
+#     except Exception as e:
+#         payload = {"success": False, "error": str(e)}; 
+#         return jsonify(payload); 
 
-@app.route("/move_gnn", methods=["POST"])
-def make_move_gnn():
-    data = request.get_json(); 
-    board = chess.Board(data.get("current_fen")); 
-    board_fen = data.get("current_fen"); 
+# @app.route("/move_gnn", methods=["POST"])
+# def make_move_gnn():
+#     data = request.get_json(); 
+#     board = chess.Board(data.get("current_fen")); 
+#     board_fen = data.get("current_fen"); 
 
-    move = predict_move_gnn(board_fen); 
+#     move = predict_move_gnn(board_fen); 
 
-    try:
-        move_obj = chess.Move.from_uci(move); 
-        if move_obj in board.legal_moves:
-            captured_piece_symbol = None; 
+#     try:
+#         move_obj = chess.Move.from_uci(move); 
+#         if move_obj in board.legal_moves:
+#             captured_piece_symbol = None; 
 
-            if board.is_capture(move_obj):
-                captured_piece = board.piece_at(move_obj.to_square); 
-                captured_piece_symbol = captured_piece.symbol() if captured_piece else None; 
+#             if board.is_capture(move_obj):
+#                 captured_piece = board.piece_at(move_obj.to_square); 
+#                 captured_piece_symbol = captured_piece.symbol() if captured_piece else None; 
 
-            board.push(move_obj); 
-            payload = {"success": True, "board_fen": board.fen()}; 
+#             board.push(move_obj); 
+#             payload = {"success": True, "board_fen": board.fen()}; 
 
-            if captured_piece_symbol is not None:
-                payload["capture"] = captured_piece_symbol; 
+#             if captured_piece_symbol is not None:
+#                 payload["capture"] = captured_piece_symbol; 
 
-            return jsonify(payload); 
-        else:
-            payload = {"success": False, "error": "Illegal Move"}; 
-            return jsonify(payload); 
-    except Exception as e:
-        payload = {"success": False, "error": str(e)}; 
-        return jsonify(payload); 
+#             return jsonify(payload); 
+#         else:
+#             payload = {"success": False, "error": "Illegal Move"}; 
+#             return jsonify(payload); 
+#     except Exception as e:
+#         payload = {"success": False, "error": str(e)}; 
+#         return jsonify(payload); 
 
 
 if __name__ == "__main__":
