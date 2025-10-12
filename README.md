@@ -102,7 +102,7 @@ npm run dev
 ## Usage
 
 - Upload 10-20K personal games or use a public dataset (recommended).
-- - Lichess for multi-million game PGN files and KingBase Lite for 10-25K game PGN files.
+- - Lichess for multi-million game PGN files, but can splice for the first couple thousand games. 
 - Trained chosen model using the same class number, len(move_to_id). 
 
 ## Roadmap
