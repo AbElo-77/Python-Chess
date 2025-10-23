@@ -74,7 +74,7 @@ def fen_to_tensor_cnn(fen: str) -> torch.Tensor: # For Both CNN and RNN As Of No
         X[pieces_as_indexes[piece.symbol()], row_idx, col_idx] = 1.0; 
     return X;
 
-def fen_to_tensor_rnn(fen: str) -> torch.Tensor:
+def fen_to_tensor_rnn(fen: str) -> torch.Tensor: # Incorporate Sequential NN
     board = chess.Board(fen); 
     X = torch.zeros(64, 12, dtype=torch.float32); 
     for square, piece in board.piece_map().items():
