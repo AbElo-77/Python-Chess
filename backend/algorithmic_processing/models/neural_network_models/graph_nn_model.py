@@ -50,38 +50,40 @@ move_to_id, id_to_move = generate_moves_made(input_files);
 # https://epubs.siam.org/doi/10.1137/1.9781611976700.82
 # https://www.sciencedirect.com/science/article/abs/pii/S1566253525000703
 
-class GraphNN(torch.nn.Module):
-    def __init__(self, in_features, hidden_features, class_number):
-        super().__init__(); 
+# -----------------------------------------------------------------------------------------------------------
 
-        self.W1 = torch.nn.Linear(in_features, hidden_features); 
-        self.W2 = torch.nn.Linear(hidden_features, hidden_features); 
+# class GraphNN(torch.nn.Module):
+#     def __init__(self, in_features, hidden_features, class_number):
+#         super().__init__(); 
+
+#         self.W1 = torch.nn.Linear(in_features, hidden_features); 
+#         self.W2 = torch.nn.Linear(hidden_features, hidden_features); 
         
-        self.fc_one = torch.nn.Linear(hidden_features, hidden_features // 2); 
-        self.fc_two = torch.nn.Linear(hidden_features // 2, class_number); 
+#         self.fc_one = torch.nn.Linear(hidden_features, hidden_features // 2); 
+#         self.fc_two = torch.nn.Linear(hidden_features // 2, class_number); 
 
-    def forward(self, X, A):
+#     def forward(self, X, A):
 
-        if X.dim() == 2:
-            X = X.unsqueeze(0); 
-            A = A.unsqueeze(0); 
+#         if X.dim() == 2:
+#             X = X.unsqueeze(0); 
+#             A = A.unsqueeze(0); 
 
-        batch_size, num_nodes, _ = X.size(); 
+#         batch_size, num_nodes, _ = X.size(); 
 
-        H = self.W1(X); 
-        H = torch.matmul(A, H); 
-        H = torch.nn.functional.relu(H); 
+#         H = self.W1(X); 
+#         H = torch.matmul(A, H); 
+#         H = torch.nn.functional.relu(H); 
 
-        H = self.W2(H);             
-        H = torch.matmul(A, H); 
-        H = torch.nn.functional.relu(H); 
+#         H = self.W2(H);             
+#         H = torch.matmul(A, H); 
+#         H = torch.nn.functional.relu(H); 
 
-        H = H.mean(dim=1); 
+#         H = H.mean(dim=1); 
 
-        out = self.fc_one(H); 
-        out = torch.nn.functional.relu(out)
-        out = self.fc_two(out); 
-        return out; 
+#         out = self.fc_one(H); 
+#         out = torch.nn.functional.relu(out)
+#         out = self.fc_two(out); 
+#         return out; 
 
 if __name__ == "__main__":
 

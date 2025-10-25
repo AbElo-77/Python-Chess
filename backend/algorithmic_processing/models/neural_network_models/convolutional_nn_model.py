@@ -53,6 +53,9 @@ move_to_id, id_to_move = generate_moves_made(input_files);
 # ------------------- ConvNeXt Model; Modified For 8x8 Board With 12 In Channels
 # https://openaccess.thecvf.com/content/CVPR2022/papers/Liu_A_ConvNet_for_the_2020s_CVPR_2022_paper.pdf
 
+# -----------------------------------------------------------------------------------------------------------
+
+# Block Featuring Depthwise and Pointwise Convolutions
 class Block(torch.nn.Module): 
     
     def __init__(self, dim, drop_path=0, layer_scale=1e-6): 
@@ -87,6 +90,8 @@ class Block(torch.nn.Module):
         input = original_input + self.drop_path(input); 
         return input; 
 
+
+# Custom LayerNorm For Alternating Input Dims 
 class LayerNorm(torch.nn.Module): 
 
     def __init__(self, normalized_shape, eps=1e-6, data_format="channels_last"): 

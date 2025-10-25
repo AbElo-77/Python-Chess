@@ -1,7 +1,7 @@
 import torch
 from backend.algorithmic_processing.models.neural_network_models.convolutional_nn_model import ConvolutionNN
-from backend.algorithmic_processing.models.neural_network_models.recurrent_nn_model import RecurrentNN
-from backend.algorithmic_processing.models.neural_network_models.temporary_graph_nn_model import GraphNN
+from backend.algorithmic_processing.models.neural_network_models.transformer_model import RecurrentNN
+from backend.algorithmic_processing.models.neural_network_models.graph_nn_model import GraphNN
 from backend.algorithmic_processing.pre_post_processing.input_to_tensor import fen_to_tensor_cnn, fen_to_tensor_rnn, fen_to_tensor_gnn
 from backend.algorithmic_processing.pre_post_processing.input_to_tensor import generate_moves_made
 

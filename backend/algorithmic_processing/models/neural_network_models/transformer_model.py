@@ -1,4 +1,4 @@
-import torch; 
+import torch, timm; 
 from backend.algorithmic_processing.pre_post_processing.input_to_tensor import generate_moves_made, create_loader
 
 input_files = ['./data/training_dataset/page_1.csv', 
@@ -52,6 +52,7 @@ move_to_id, id_to_move = generate_moves_made(input_files);
 # ------------------- Dual Attention Vision Transformer (DaViT); Modified For 8x8 Board With 12 In Channels
 # https://scispace.com/pdf/davit-dual-attention-vision-transformers-1ut6my54.pdf
 
+# -----------------------------------------------------------------------------------------------------------
 
 # MultiLayer Perceptron (MLP); Linear -> GELU() -> Linear
 class MLP(torch.nn.Module): 
@@ -119,7 +120,7 @@ class PatchEmbed(torch.nn.Module):
 
         dims = len(input.shape); 
         if dims == 3:
-            B, HW, C = input.shape; 
+            B, _, C = input.shape; 
             input = self.norm(input); 
             input = input.reshape(B, H, W, C).permute(0, 3, 1, 2).contiguous(); 
 
@@ -138,13 +139,173 @@ class PatchEmbed(torch.nn.Module):
 
         return input, new_size; 
 
-# ChannelAttention 
+# Channel Attention For Global Attention Across Features
+class ChannelAttention(torch.nn.Module): 
 
-# SpatialAttention 
+    def __init__(self, dim, num_heads): 
+        super().__init__(); 
+
+        self.num_heads = num_heads; 
+        self.scale  = (dim // num_heads) ** -0.5; 
+
+        self.proj = torch.nn.Linear(dim, dim); 
+        self.QKV = torch.nn.Linear(dim, dim * 3); 
+
+    def forward(self, input): 
+        B, N, C = input.shape; 
+
+        QKV = self.QKV(input).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4); 
+
+        query, key, value = QKV[0], QKV[1], QKV[2]; 
+        key *= self.scale; 
+        attention = key.transpose(-1, -2) @ value; 
+        attention = attention.softmax(dim=-1); 
+
+        input = (attention @ query.transpose(-1, -2)).transpose(-1, -2); 
+        input = self.proj(input.transpose(1, 2).reshape(B, N, C)); 
+
+        return input; 
+
+# Window-Based Spatial Attention For Local Attention Among Tokens
+class SpatialAttention(torch.nn.Module):
+
+    def __init__(self, dim, num_heads): 
+        super().__init__(); 
+
+        self.num_heads = num_heads; 
+        self.scale  = (dim // num_heads) ** -0.5; 
+
+        self.proj = torch.nn.Linear(dim, dim); 
+        self.QKV = torch.nn.Linear(dim, dim * 3); 
+
+    def forward(self, input): 
+        B, N, C = input.shape; 
+
+        QKV = self.QKV(input).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4); 
+
+        query, key, value = QKV[0], QKV[1], QKV[2]; 
+        key *= self.scale; 
+        attention = query @ key.transpose(-2, -1); 
+        attention = attention.softmax(dim=-1); 
+
+        input = (attention @ value).transpose(1, 2).reshape(B, N, C);
+        input = self.proj(input); 
+
+        return input; 
+
+# Channel Attention Block For A Sequence of Channel Attending
+class ChanAttenBlock(torch.nn.Module): 
+
+    def __init__(self, dims, num_heads, MLP_ratio, drop_path=0., feed_forward=True): 
+        super().__init__(); 
+
+        self.conv_pos = torch.nn.ModuleList([ConvPosEncoding(dims, kernel_size=2), 
+                                             ConvPosEncoding(dims, kernel_size=2)]); 
+
+        self.attention = ChannelAttention(dims, num_heads); 
+        self.drop_path = timm.models.DropPath(drop_path) if drop_path > 0 else None; 
+
+        self.ff = feed_forward; 
+        self.MLP = MLP(dims, hidden_features=int(dims * MLP_ratio)); 
+
+    def forward(self, input, size: tuple):
+        input = self.conv_pos[0](input, size); 
+
+        attended_input = torch.nn.LayerNorm(input); 
+        attended_input = self.attention(attended_input); 
+
+        input += self.drop_path(attended_input); 
+
+        input = self.conv_pos[1](input, size); 
+        if self.ff: 
+            proj = torch.nn.LayerNorm(input); 
+            proj = self.MLP(input); 
+            
+            input += self.drop_path(proj); 
+
+        return input, size; 
+
+
+# Spatial Attention Block For A Sequence of Spatial Attending
+class SpatAttenBlock(torch.nn.Module):
+
+    def __init__(self, dims, num_heads, MLP_ratio, drop_path=0., feed_forward=True, window_size=4): 
+        super().__init__(); 
+
+        self.window_size = window_size; 
+        self.conv_pos = torch.nn.ModuleList([ConvPosEncoding(dims, kernel_size=2), 
+                                             ConvPosEncoding(dims, kernel_size=2)]); 
+
+        self.attention = SpatialAttention(dims, num_heads); 
+        self.drop_path = timm.models.DropPath(drop_path) if drop_path > 0 else None; 
+
+        self.ff = feed_forward; 
+        self.MLP = MLP(dims, hidden_features=int(dims * MLP_ratio)); 
+    
+    def window(input, window_size): 
+        B, H, W, C = input.shape; 
+    
+        input = input.view(B, H // window_size, W // window_size, window_size, C); 
+        
+        input_windows = input.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, C); 
+        return input_windows; 
+
+    def window_r(input, window_size, H_new, W_new): 
+        B = int(input.shape[0] / (H_new * W_new / window_size / window_size)); 
+
+        input_r = input.view(B, H_new // window_size, W_new // window_size, window_size, window_size, -1); 
+        input_r = input_r.permute(0, 1, 3, 2, 4, 5).contiguous().view(B, H_new, W_new, -1); 
+
+        return input_r; 
+
+    def forward(self, input, size): 
+        B, _, C = input.shape; 
+        H, W = size; 
+
+        bypass = self.conv_pos[0](input, size); 
+        input = self.conv_pos[0](input, size); 
+        input = torch.nn.LayerNorm(input).view(B, H, W, C); 
+
+        if W % self.window_size != 0:
+            input = torch.nn.functional.pad(input, (0, self.window_size - W %  self.window_size)); 
+        if H % self.window_size != 0:
+            input = torch.nn.functional.pad(input, (0, 0, 0, self.window_size - H % self.window_size)); 
+
+        _, H_new, W_new, _ = input.shape; 
+
+        input_windows = self.window(input, self.window_size); 
+        input_windows = input_windows.view(-1, self.window_size * self.window_size, C); 
+
+        attention_w = self.attention(attention_w); 
+        attention_w = attention_w.view(-1, self.window_size, self.window_size, C); 
+
+        input = self.window_r(attention_w, self.window_size, H_new, W_new); 
+
+        if H != H_new: 
+            input = input[:, :H, :W, :].contiguous(); 
+
+        input = input.view(B, H*W, C); 
+        input = bypass + self.drop_path(input); 
+
+        input = self.conv_pos[1](input, size); 
+        if self.ff: 
+            proj = torch.nn.LayerNorm(input); 
+            proj = self.MLP(input); 
+            
+            input += self.drop_path(proj); 
+
+        return input, size;       
+
 
 class ChessDaViT(torch.nn.Module): 
 
-    def __init__(self): 
+    def __init__(self, in_channels=12, num_classes=len(move_to_id), 
+                 depths = [1, 1, 3, 1], patch_size=4, embed_dims=[64, 128, 256, 512], 
+                 num_heads=[3, 6, 12, 24], image_size = 64): 
+        super().__init__(); 
+
+        
+
         return; 
 
 # class RecurrentNN(torch.nn.Module): 
@@ -186,8 +347,9 @@ if __name__ == "__main__":
 # ------------------- Creating A Loss Function with CrossEntropyLoss()
 
     loss_function = torch.nn.CrossEntropyLoss(); 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu"); 
 
-    recurrent_model = ChessDaViT(len(move_to_id)).to("cpu"); 
+    recurrent_model = ChessDaViT(len(move_to_id)).to(device); 
     optimizing_factor = torch.optim.Adam(recurrent_model.parameters(), lr=1e-5); 
 
 # ------------------- Training The Model With DataLoader
@@ -203,7 +365,7 @@ if __name__ == "__main__":
         with torch.no_grad(): 
 
             for X, Y, Z, y in batch_training: 
-                Y, y = Y.to("cpu"), y.to("cpu"); 
+                Y, y = Y.to(device), y.to(device); 
                 model_output = recurrent_model(Y); 
                 predictions = model_output.argmax(dim=1); 
                 number_correct += (predictions == y).sum().item(); 
@@ -216,7 +378,7 @@ if __name__ == "__main__":
         total_loss = 0; 
 
         for X, Y, Z, y in batch_training:    
-            Y, y = Y.to("cpu"), y.to("cpu"); 
+            Y, y = Y.to(device), y.to(device); 
             optimizing_factor.zero_grad(); 
             logits = recurrent_model(Y); 
             loss = loss_function(logits, y); 
