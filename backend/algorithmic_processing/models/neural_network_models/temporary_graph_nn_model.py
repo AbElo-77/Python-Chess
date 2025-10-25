@@ -46,7 +46,9 @@ input_files = ['./data/training_dataset/page_1.csv',
 
 move_to_id, id_to_move = generate_moves_made(input_files); 
 
-# ------------------- Simple Graph Neural Network Model 
+# ------------------- Spatio-Temporal Graph Neural Network (STGNN); Modified For 8x8 Board With 12 In Channels 
+# https://epubs.siam.org/doi/10.1137/1.9781611976700.82
+# https://www.sciencedirect.com/science/article/abs/pii/S1566253525000703
 
 class GraphNN(torch.nn.Module):
     def __init__(self, in_features, hidden_features, class_number):
