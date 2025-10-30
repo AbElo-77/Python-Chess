@@ -52,6 +52,12 @@ move_to_id, id_to_move = generate_moves_made(input_files);
 
 # -----------------------------------------------------------------------------------------------------------
 
+class ChessSTGNN(torch.nn.Module): 
+
+    def __init__(self, input): 
+
+        return; 
+
 # class GraphNN(torch.nn.Module):
 #     def __init__(self, in_features, hidden_features, class_number):
 #         super().__init__(); 
@@ -91,7 +97,7 @@ if __name__ == "__main__":
 
     loss_function = torch.nn.CrossEntropyLoss(); 
 
-    graph_model = GraphNN(in_features=12, hidden_features=128, class_number=len(move_to_id)).to("cpu"); 
+    graph_model = ChessSTGNN(in_features=12, hidden_features=128, class_number=len(move_to_id)).to("cpu"); 
     optimizing_factor = torch.optim.Adam(graph_model.parameters(), lr=1e-5); 
 
 # ------------------- Training The Model With DataLoader

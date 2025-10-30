@@ -1,4 +1,5 @@
 import torch, timm
+from timm.layers import DropPath, trunc_normal_
 from backend.algorithmic_processing.pre_post_processing.input_to_tensor import generate_moves_made, create_loader
 
 input_files = ['./data/training_dataset/page_1.csv', 
@@ -41,8 +42,7 @@ input_files = ['./data/training_dataset/page_1.csv',
                './data/training_dataset/page_38.csv', 
                './data/training_dataset/page_39.csv', 
                './data/training_dataset/page_40.csv',
-               './data/training_dataset/page_41.csv', 
-               './data/training_dataset/page_42.csv']
+               './data/training_dataset/page_41.csv']
 
 move_to_id, id_to_move = generate_moves_made(input_files); 
 
@@ -58,19 +58,18 @@ move_to_id, id_to_move = generate_moves_made(input_files);
 # Block Featuring Depthwise and Pointwise Convolutions
 class Block(torch.nn.Module): 
     
-    def __init__(self, dim, drop_path=0, layer_scale=1e-6): 
-        super().__init__(); 
+    def __init__(self, dim, drop_path=0, layer_scale=1e-6):
+        super().__init__()
 
-        self.conv_dw = torch.nn.Conv2d(dim, dim, kernel_size=2, padding=0,groups=dim); 
+        self.conv_dw = torch.nn.Conv2d(dim, dim, kernel_size=3, padding=1, groups=dim); 
         self.norm = LayerNorm(dim, eps=1e-6); 
 
         self.conv_pw = torch.nn.Linear(dim, dim * 4); 
         self.act_func = torch.nn.GELU(); 
         self.conv_pw_r = torch.nn.Linear(dim * 4, dim); 
 
-        self.gamma = torch.nn.Parameter(layer_scale * torch.ones((dim)), 
-                                    requires_grad=True) if layer_scale > 0 else None 
-        self.drop_path = timm.models.DropPath(drop_path) if drop_path > 0 else None; 
+        self.gamma = torch.nn.Parameter(layer_scale * torch.ones((dim)), requires_grad=True); 
+        self.drop_path = DropPath(drop_path) if drop_path > 0 else None; 
 
     def forward(self, input):
         original_input = input; 
@@ -87,7 +86,10 @@ class Block(torch.nn.Module):
         input = self.gamma * input if self.gamma is not None else input; 
         input = input.permute(0, 3, 1, 2); 
 
-        input = original_input + self.drop_path(input); 
+        if self.drop_path is not None:
+            input = original_input + self.drop_path(input); 
+        else:
+            input = original_input + input; 
         return input; 
 
 
@@ -118,7 +120,7 @@ class LayerNorm(torch.nn.Module):
 class ChessConvNeXt(torch.nn.Module): 
 
     def __init__(self, in_channels=12, num_classes=len(move_to_id), 
-                 depths=[3, 3, 9, 3], dims=[64, 128, 256, 512], drop_rate=0., layer_scale=1e-6, head_scale=1.): 
+                 depths=[3, 3, 9, 3], dims=[64, 128, 256, 512], drop_rate=0.1, layer_scale=1e-6, head_scale=1.): 
         super().__init__(); 
 
         
@@ -130,9 +132,13 @@ class ChessConvNeXt(torch.nn.Module):
         self.downsample_layers.append(stem); 
 
         for i in range(3): 
+            if i == 2:
+                conv = torch.nn.Conv2d(dims[i], dims[i+1], kernel_size=1, stride=1); 
+            else:
+                conv = torch.nn.Conv2d(dims[i], dims[i+1], kernel_size=2, stride=2); 
             downsample_layer = torch.nn.Sequential(
                 LayerNorm(dims[i], eps=1e-6, data_format="channels_first"),
-                torch.nn.Conv2d(dims[i], dims[i+1], kernel_size=2, stride=2),
+                conv,
             )
             self.downsample_layers.append(downsample_layer); 
 
@@ -156,7 +162,7 @@ class ChessConvNeXt(torch.nn.Module):
 
     def _init_weights(self, m):
         if isinstance(m, (torch.nn.Conv2d, torch.nn.Linear)):
-            timm.models.trunc_normal_(m.weight, std=.02); 
+            trunc_normal_(m.weight, std=.02); 
             torch.nn.init.constant_(m.bias, 0); 
 
     def forward_features(self, input):
@@ -203,7 +209,7 @@ if __name__ == '__main__':
     loss_function = torch.nn.CrossEntropyLoss(); 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu"); 
 
-    convolution_model = ChessConvNeXt(len(move_to_id)).to(device); 
+    convolution_model = ChessConvNeXt(num_classes=len(move_to_id)).to(device)
     optimizing_factor = torch.optim.Adam(convolution_model.parameters(), lr=1e-5); 
 
 # ------------------- Training The Model With DataLoader
