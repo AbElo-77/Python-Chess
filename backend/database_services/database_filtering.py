@@ -10,11 +10,11 @@ chess_database = pymysql.connect(
      database= "chesssql"
 )
 
-cursor = chess_database.cursor(); 
+cursor = chess_database.cursor() 
 
 def query_database(sql_query: str): 
 
-    cursor.execute(sql_query); 
-    return cursor.fetchall(); 
+    cursor.execute(sql_query) 
+    return cursor.fetchall() 
 
 

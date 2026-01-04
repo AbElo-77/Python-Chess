@@ -1,31 +1,70 @@
-import pandas
-import chess, chess.pgn  
+import chess.pgn
+import csv
+import io, os
+from multiprocessing import Pool, cpu_count
 
-chess_csv = pandas.DataFrame(columns=['game_id','white', 'black', 'white_elo', 'black_elo', 'chess_fen', 'move_made']); 
-game_file = open('./data/PGN_files/lichess_first_10k.pgn'); 
+def process_game(args):
+    game_id, game_text = args
+    rows = []
+    try:
+        game = chess.pgn.read_game(io.StringIO(game_text))
+        if game is None:
+            return rows
 
-current_game = chess.pgn.read_game(game_file); 
-game_id = 0;  
+        board = game.board()
+        headers = game.headers
+        white = headers.get("White", "")
+        black = headers.get("Black", "")
+        white_elo = headers.get("WhiteElo", "")
+        black_elo = headers.get("BlackElo", "")
 
-while current_game is not None:
- 
-    game_id = game_id + 1; 
-    game_board = current_game.board(); 
+        for move in game.mainline_moves():
+            board.push(move)
+            rows.append([
+                game_id, white, black,
+                white_elo, black_elo,
+                board.fen(),
+                move.uci()
+            ])
+    except Exception as e:
+        print(f"Skip")
+    return rows
 
-    for move in current_game.mainline_moves():
+def read_games_text(pgn_path):
+    with open(pgn_path, encoding="utf-8", errors="ignore") as pgn_file:
+        game_id = 0
+        while True:
+            game = chess.pgn.read_game(pgn_file)
+            if game is None:
+                break
+            game_id += 1
+            print(game_id)
+            yield (game_id, str(game))
 
-        game_board.push(move); 
-        current_fen = game_board.fen(); 
-        current_move = move; 
+def main():
+    input_pgns = []
+    for _, _, files in os.walk(os.path.abspath('./data/PGN_files')): 
+        for file in files: 
+            _, ex = os.path.splitext(file)
+            if ex == '.pgn': 
+                input_pgns.append(r"C:\Users\abdal\OneDrive\Desktop\Python Chess\data\PGN_files" + "\\" + file)
 
-        headers = current_game.headers; 
-        white = headers.get("White", ""); 
-        black = headers.get("Black", ""); 
-        white_elo = headers.get("WhiteElo", ""); 
-        black_elo = headers.get("BlackElo", ""); 
+    output_csv = "./data/training_dataset/all_files.csv"
 
-        chess_csv.loc[len(chess_csv)] = [game_id, white, black, white_elo, black_elo, current_fen, current_move.uci()];  
+    num_workers = max(cpu_count() - 2, 1)  
 
-    current_game = chess.pgn.read_game(game_file); 
+    with open(output_csv, "w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow([
+            "game_id", "white", "black",
+            "white_elo", "black_elo",
+            "chess_fen", "move_made"
+        ])
 
-chess_csv.to_csv('./data/training_dataset/page_42.csv', index=False); 
+        for input_pgn in input_pgns:
+            with Pool(processes=num_workers) as pool:
+                for game_rows in pool.imap_unordered(process_game, read_games_text(input_pgn), chunksize=50):
+                    writer.writerows(game_rows)
+
+if __name__ == "__main__":
+    main()

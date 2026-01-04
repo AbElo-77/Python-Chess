@@ -1,0 +1,3 @@
+# Raw Data
+data/
+backend/algorithmic_processing/models/trained_models/chess_convnext.pt
