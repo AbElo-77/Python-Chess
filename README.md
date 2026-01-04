@@ -5,8 +5,6 @@
 
 A chess engine / AI project built in Python (with SQL backend, machine learning, and a frontend) aiming to emulate the author’s playing style via adaptive models.  
 
-**Expected completion date**: October 10, 2025  
-
 ---
 
 ## Table of Contents
